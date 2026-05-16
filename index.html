@@ -7,13 +7,13 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --bg-color: #191919;       /* 노션 다크모드 배경색 */
-            --card-bg: #202020;        /* 노션 다크모드 카드색 */
-            --border-color: #2f2f2f;   /* 노션 다크모드 테두리색 */
+            --bg-color: #191919;       
+            --card-bg: #202020;        
+            --border-color: #2f2f2f;   
             --text-main: #ffffff;
             --text-sub: #9b9b9b;
-            --accent-color: #e25555;   /* 뽀모도로 포인트 레드 */
-            --accent-break: #2eaadc;   /* 휴식 포인트 블루 */
+            --accent-color: #e25555;   
+            --accent-break: #2eaadc;   
         }
 
         body {
@@ -21,7 +21,7 @@
             padding: 20px;
             background-color: var(--bg-color);
             color: var(--text-main);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -35,7 +35,6 @@
             gap: 20px;
         }
 
-        /* 카드 공통 스타일 */
         .card {
             background-color: var(--card-bg);
             border: 1px solid var(--border-color);
@@ -45,7 +44,6 @@
             text-align: center;
         }
 
-        /* 타이머 영역 */
         .mode-indicator {
             font-size: 0.9rem;
             color: var(--text-sub);
@@ -61,7 +59,6 @@
             font-variant-numeric: tabular-nums;
         }
 
-        /* 컨트롤 버튼 */
         .controls {
             display: flex;
             justify-content: center;
@@ -81,20 +78,10 @@
             transition: all 0.2s;
         }
 
-        button:hover {
-            background-color: #373737;
-        }
+        button:hover { background-color: #373737; }
+        button.primary { background-color: var(--accent-color); border-color: var(--accent-color); }
+        button.primary:hover { background-color: #ff6b6b; }
 
-        button.primary {
-            background-color: var(--accent-color);
-            border-color: var(--accent-color);
-        }
-
-        button.primary:hover {
-            background-color: #ff6b6b;
-        }
-
-        /* 커스텀 설정 영역 */
         .settings {
             display: flex;
             justify-content: space-around;
@@ -123,7 +110,6 @@
             font-size: 1rem;
         }
 
-        /* 통계 그래프 영역 */
         .stats-header {
             display: flex;
             justify-content: space-between;
@@ -131,11 +117,7 @@
             margin-bottom: 15px;
         }
 
-        .stats-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--text-main);
-        }
+        .stats-title { font-size: 1.1rem; font-weight: 600; }
 
         .toggle-buttons {
             display: flex;
@@ -146,22 +128,10 @@
             border: 1px solid var(--border-color);
         }
 
-        .toggle-buttons button {
-            padding: 4px 10px;
-            font-size: 0.8rem;
-            border: none;
-            background: none;
-        }
+        .toggle-buttons button { padding: 4px 10px; font-size: 0.8rem; border: none; background: none; }
+        .toggle-buttons button.active { background-color: var(--card-bg); border-radius: 4px; }
 
-        .toggle-buttons button.active {
-            background-color: var(--card-bg);
-            border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-
-        canvas {
-            max-height: 200px;
-        }
+        canvas { max-height: 200px; }
     </style>
 </head>
 <body>
@@ -201,14 +171,12 @@
 </div>
 
 <script>
-    // --- 상태 변수 ---
     let isFocusMode = true;
     let timeLeft = 25 * 60;
     let timerId = null;
-    let chartView = 'week'; // 'week' 또는 'month'
+    let chartView = 'week'; 
     let myChart = null;
 
-    // --- DOM 요소 ---
     const timerDisplay = document.getElementById('timer');
     const modeLabel = document.getElementById('modeLabel');
     const startBtn = document.getElementById('startBtn');
@@ -216,4 +184,172 @@
     const focusInput = document.getElementById('focusInput');
     const breakInput = document.getElementById('breakInput');
 
-    // --- 초기
+    // --- [안전장치] 브라우저 쿠키/메모리 차단 대응 로직 ---
+    let isStorageAvailable = false;
+    let backupMemory = {};
+
+    try {
+        localStorage.setItem('test', 'test');
+        localStorage.removeItem('test');
+        isStorageAvailable = true;
+    } catch (e) {
+        console.warn("브라우저 보안으로 로컬스토리지가 차단되었습니다. 임시 메모리를 사용합니다.");
+    }
+
+    function getStorageData() {
+        if (isStorageAvailable) {
+            return JSON.parse(localStorage.getItem('pomodoroData')) || {};
+        }
+        return backupMemory;
+    }
+
+    function setStorageData(data) {
+        if (isStorageAvailable) {
+            try {
+                localStorage.setItem('pomodoroData', JSON.stringify(data));
+            } catch (e) {}
+        } else {
+            backupMemory = data;
+        }
+    }
+
+    // 초기 더미 데이터 주입
+    let currentData = getStorageData();
+    if (Object.keys(currentData).length === 0) {
+        const dummyData = {};
+        const today = new Date();
+        for (let i = 15; i >= 0; i--) {
+            const d = new Date(today);
+            d.setDate(today.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            dummyData[dateStr] = Math.floor(Math.random() * 3) * 25; 
+        }
+        setStorageData(dummyData);
+    }
+
+    // --- 타이머 기능 ---
+    function updateDisplay() {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        timerDisplay.style.color = isFocusMode ? 'var(--text-main)' : 'var(--accent-break)';
+        timerDisplay.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+    }
+
+    function initTimer() {
+        clearInterval(timerId);
+        timerId = null;
+        startBtn.textContent = '시작';
+        const focusMin = parseInt(focusInput.value) || 25;
+        const breakMin = parseInt(breakInput.value) || 5;
+        timeLeft = (isFocusMode ? focusMin : breakMin) * 60;
+        modeLabel.textContent = isFocusMode ? "Focus Time" : "Break Time";
+        modeLabel.style.color = isFocusMode ? "var(--accent-color)" : "var(--accent-break)";
+        updateDisplay();
+    }
+
+    startBtn.addEventListener('click', () => {
+        if (timerId === null) {
+            startBtn.textContent = '일시정지';
+            timerId = setInterval(() => {
+                if (timeLeft > 0) {
+                    timeLeft--;
+                    updateDisplay();
+                } else {
+                    clearInterval(timerId);
+                    timerId = null;
+                    
+                    if (isFocusMode) {
+                        saveRecord(parseInt(focusInput.value)); 
+                        alert('집중 완료! 휴식 시간입니다.');
+                        isFocusMode = false;
+                    } else {
+                        alert('휴식 종료! 다시 집중할 시간입니다.');
+                        isFocusMode = true;
+                    }
+                    initTimer();
+                }
+            }, 1000);
+        } else {
+            clearInterval(timerId);
+            timerId = null;
+            startBtn.textContent = '시작';
+        }
+    });
+
+    resetBtn.addEventListener('click', initTimer);
+    focusInput.addEventListener('change', initTimer);
+    breakInput.addEventListener('change', initTimer);
+
+    function saveRecord(minutes) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        let data = getStorageData();
+        data[todayStr] = (data[todayStr] || 0) + minutes;
+        setStorageData(data);
+        renderChart(); 
+    }
+
+    // --- 그래프 시각화 ---
+    function getChartData(daysCount) {
+        const data = getStorageData();
+        const labels = [];
+        const dataset = [];
+        const today = new Date();
+
+        for (let i = daysCount - 1; i >= 0; i--) {
+            const d = new Date(today);
+            d.setDate(today.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            
+            if (daysCount > 7) {
+                labels.push(`${d.getDate()}일`);
+            } else {
+                labels.push(`${d.getMonth()+1}/${d.getDate()}`);
+            }
+            dataset.push(data[dateStr] || 0);
+        }
+        return { labels, dataset };
+    }
+
+    function renderChart() {
+        const days = chartView === 'week' ? 7 : 30;
+        const { labels, dataset } = getChartData(days);
+        const ctx = document.getElementById('statsChart').getContext('2d');
+
+        if (myChart) { myChart.destroy(); }
+
+        myChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '집중 시간(분)',
+                    data: dataset,
+                    backgroundColor: '#e25555',
+                    borderRadius: 4,
+                    barPercentage: 0.6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: '#9b9b9b', font: { size: 10 } } },
+                    y: { grid: { color: '#2f2f2f' }, ticks: { color: '#9b9b9b', font: { size: 10 } }, beginAtZero: true }
+                }
+            }
+        });
+    }
+
+    function changechartView(view) {
+        chartView = view;
+        document.getElementById('weekBtn').classList.toggle('active', view === 'week');
+        document.getElementById('monthBtn').classList.toggle('active', view === 'month');
+        renderChart();
+    }
+
+    initTimer();
+    renderChart();
+</script>
+</body>
+</html>
