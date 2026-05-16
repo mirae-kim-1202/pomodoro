@@ -247,7 +247,7 @@
     
     function getData() {
         try {
-            return JSON.parse(localStorage.getItem('pomo_pure')) || {};
+            return JSON.parse(localStorage.getItem('pomo_real')) || {};
         } catch(e) {
             return memoryStorage;
         }
@@ -255,7 +255,7 @@
 
     function saveData(data) {
         try {
-            localStorage.setItem('pomo_pure', JSON.stringify(data));
+            localStorage.setItem('pomo_real', JSON.stringify(data));
         } catch(e) {
             memoryStorage = data;
         }
