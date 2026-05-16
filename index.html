@@ -73,6 +73,7 @@
             font-size: 0.9rem;
             font-weight: 600;
             cursor: pointer;
+            transition: all 0.2s;
         }
 
         button:hover { background-color: #373737; }
@@ -105,21 +106,51 @@
             text-align: center;
         }
 
-        /* --- 순수 CSS 그래프 스타일 --- */
+        /* --- 통계 헤더 및 토글 버튼 스타일 --- */
+        .stats-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
         .stats-title {
             font-size: 1rem;
             font-weight: 600;
-            text-align: left;
-            margin-bottom: 15px;
             color: var(--text-main);
         }
 
+        .toggle-container {
+            display: flex;
+            background-color: var(--bg-color);
+            padding: 2px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        .toggle-container button {
+            padding: 3px 8px;
+            font-size: 0.75rem;
+            border: none;
+            background: none;
+            color: var(--text-sub);
+        }
+
+        .toggle-container button.active {
+            background-color: var(--card-bg);
+            color: var(--text-main);
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        /* --- 순수 CSS 그래프 스타일 --- */
         .chart-container {
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
             height: 120px;
             padding-top: 10px;
+            gap: 2px;
         }
 
         .bar-wrapper {
@@ -133,202 +164,13 @@
         }
 
         .bar-track {
-            width: 15px;
+            width: 100%;
+            max-width: 16px;
             height: 90px;
-            background-color: #252525;
+            background-color: #232323;
             border-radius: 3px;
             display: flex;
             align-items: flex-end;
         }
 
         .bar-fill {
-            width: 100%;
-            height: 0%; /* JS로 조절 */
-            background-color: var(--accent-color);
-            border-radius: 3px;
-            transition: height 0.5s ease;
-        }
-
-        .bar-label {
-            font-size: 0.7rem;
-            color: var(--text-sub);
-        }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <div class="card">
-        <div id="modeLabel" class="mode-indicator">Focus Time</div>
-        <div id="timer">25:00</div>
-        
-        <div class="controls">
-            <button id="startBtn" class="primary">시작</button>
-            <button id="resetBtn">리셋</button>
-        </div>
-
-        <div class="settings">
-            <div class="setting-group">
-                <label for="focusInput">집중 (분)</label>
-                <input type="number" id="focusInput" value="25" min="1" max="60">
-            </div>
-            <div class="setting-group">
-                <label for="breakInput">휴식 (분)</label>
-                <input type="number" id="breakInput" value="5" min="1" max="60">
-            </div>
-        </div>
-    </div>
-
-    <div class="card">
-        <div class="stats-title">주간 집중 통계 (최근 7일)</div>
-        <div class="chart-container" id="chartContainer">
-            </div>
-    </div>
-</div>
-
-<script>
-    let isFocusMode = true;
-    let timeLeft = 25 * 60;
-    let timerId = null;
-
-    const timerDisplay = document.getElementById('timer');
-    const modeLabel = document.getElementById('modeLabel');
-    const startBtn = document.getElementById('startBtn');
-    const resetBtn = document.getElementById('resetBtn');
-    const focusInput = document.getElementById('focusInput');
-    const breakInput = document.getElementById('breakInput');
-
-    // 임시 메모리 저장소 (보안 차단 대비)
-    let memoryStorage = {};
-    
-    function getData() {
-        try {
-            return JSON.parse(localStorage.getItem('pomo_pure')) || {};
-        } catch(e) {
-            return memoryStorage;
-        }
-    }
-
-    function saveData(data) {
-        try {
-            localStorage.setItem('pomo_pure', JSON.stringify(data));
-        } catch(e) {
-            memoryStorage = data;
-        }
-    }
-
-    // 초기 더미데이터 주입 (그래프가 비어보이지 않게)
-    let currentData = getData();
-    if (Object.keys(currentData).length === 0) {
-        const today = new Date();
-        for (let i = 6; i >= 0; i--) {
-            const d = new Date(today);
-            d.setDate(today.getDate() - i);
-            currentData[d.toISOString().split('T')[0]] = Math.floor(Math.random() * 3) * 25;
-        }
-        saveData(currentData);
-    }
-
-    // 타이머 구동
-    function updateDisplay() {
-        const minutes = Math.floor(timeLeft / 60);
-        const seconds = timeLeft % 60;
-        timerDisplay.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-    }
-
-    function initTimer() {
-        clearInterval(timerId);
-        timerId = null;
-        startBtn.textContent = '시작';
-        const focusMin = parseInt(focusInput.value) || 25;
-        const breakMin = parseInt(breakInput.value) || 5;
-        timeLeft = (isFocusMode ? focusMin : breakMin) * 60;
-        modeLabel.textContent = isFocusMode ? "Focus Time" : "Break Time";
-        modeLabel.style.color = isFocusMode ? "var(--accent-color)" : "var(--accent-break)";
-        updateDisplay();
-    }
-
-    startBtn.addEventListener('click', () => {
-        if (timerId === null) {
-            startBtn.textContent = '일시정지';
-            timerId = setInterval(() => {
-                if (timeLeft > 0) {
-                    timeLeft--;
-                    updateDisplay();
-                } else {
-                    clearInterval(timerId);
-                    timerId = null;
-                    if (isFocusMode) {
-                        recordTime(parseInt(focusInput.value));
-                        alert('집중 완료! 휴식 시간입니다.');
-                        isFocusMode = false;
-                    } else {
-                        alert('휴식 종료! 다시 힘내봐요.');
-                        isFocusMode = true;
-                    }
-                    initTimer();
-                }
-            }, 1000);
-        } else {
-            clearInterval(timerId);
-            timerId = null;
-            startBtn.textContent = '시작';
-        }
-    });
-
-    resetBtn.addEventListener('click', initTimer);
-    focusInput.addEventListener('change', initTimer);
-    breakInput.addEventListener('change', initTimer);
-
-    function recordTime(mins) {
-        const todayStr = new Date().toISOString().split('T')[0];
-        let data = getData();
-        data[todayStr] = (data[todayStr] || 0) + mins;
-        saveData(data);
-        renderCSSChart();
-    }
-
-    // 순수 HTML 막대그래프 그리기 함수
-    function renderCSSChart() {
-        const container = document.getElementById('chartContainer');
-        container.innerHTML = '';
-        const data = getData();
-        const today = new Date();
-        
-        // 최근 7일 데이터 추출
-        const last7Days = [];
-        let maxVal = 60; // 최대 기준치 (분) 기본값
-
-        for (let i = 6; i >= 0; i--) {
-            const d = new Date(today);
-            d.setDate(today.getDate() - i);
-            const dateStr = d.toISOString().split('T')[0];
-            const val = data[dateStr] || 0;
-            if (val > maxVal) maxVal = val;
-            last7Days.push({
-                label: `${d.getDate()}일`,
-                value: val
-            });
-        }
-
-        // 막대 엘리먼트 생성
-        last7Days.forEach(day => {
-            const pct = (day.value / maxVal) * 100;
-            const wrapper = document.createElement('div');
-            wrapper.className = 'bar-wrapper';
-            wrapper.title = `${day.value}분 집중함`;
-            wrapper.innerHTML = `
-                <div class="bar-track">
-                    <div class="bar-fill" style="height: ${pct}%"></div>
-                </div>
-                <div class="bar-label">${day.label}</div>
-            `;
-            container.appendChild(wrapper);
-        });
-    }
-
-    initTimer();
-    renderCSSChart();
-</script>
-</body>
-</html>
