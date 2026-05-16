@@ -174,3 +174,234 @@
         }
 
         .bar-fill {
+            width: 100%;
+            height: 0%; 
+            background-color: var(--accent-color);
+            border-radius: 3px;
+            transition: height 0.4s ease;
+        }
+
+        .bar-label {
+            font-size: 0.7rem;
+            color: var(--text-sub);
+            height: 14px;
+            line-height: 14px;
+        }
+        
+        .bar-wrapper.today .bar-label {
+            color: var(--accent-color);
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <div id="modeLabel" class="mode-indicator">Focus Time</div>
+        <div id="timer">25:00</div>
+        
+        <div class="controls">
+            <button id="startBtn" class="primary">시작</button>
+            <button id="resetBtn">리셋</button>
+        </div>
+
+        <div class="settings">
+            <div class="setting-group">
+                <label for="focusInput">집중 (분)</label>
+                <input type="number" id="focusInput" value="25" min="1" max="60">
+            </div>
+            <div class="setting-group">
+                <label for="breakInput">휴식 (분)</label>
+                <input type="number" id="breakInput" value="5" min="1" max="60">
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="stats-header">
+            <div class="stats-title" id="chartTitle">이번 주 통계</div>
+            <div class="toggle-container">
+                <button id="weekBtn" class="active" onclick="switchView('week')">주간</button>
+                <button id="monthBtn" onclick="switchView('month')">월간</button>
+            </div>
+        </div>
+        <div class="chart-container" id="chartContainer"></div>
+    </div>
+</div>
+
+<script>
+    let isFocusMode = true;
+    let timeLeft = 25 * 60;
+    let timerId = null;
+    let currentView = 'week'; // 'week' 또는 'month'
+
+    const timerDisplay = document.getElementById('timer');
+    const modeLabel = document.getElementById('modeLabel');
+    const startBtn = document.getElementById('startBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const focusInput = document.getElementById('focusInput');
+    const breakInput = document.getElementById('breakInput');
+
+    let memoryStorage = {};
+    
+    function getData() {
+        try {
+            return JSON.parse(localStorage.getItem('pomo_pure')) || {};
+        } catch(e) {
+            return memoryStorage;
+        }
+    }
+
+    function saveData(data) {
+        try {
+            localStorage.setItem('pomo_pure', JSON.stringify(data));
+        } catch(e) {
+            memoryStorage = data;
+        }
+    }
+
+    function updateDisplay() {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        timerDisplay.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+    }
+
+    function initTimer() {
+        clearInterval(timerId);
+        timerId = null;
+        startBtn.textContent = '시작';
+        const focusMin = parseInt(focusInput.value) || 25;
+        const breakMin = parseInt(breakInput.value) || 5;
+        timeLeft = (isFocusMode ? focusMin : breakMin) * 60;
+        modeLabel.textContent = isFocusMode ? "Focus Time" : "Break Time";
+        modeLabel.style.color = isFocusMode ? "var(--accent-color)" : "var(--accent-break)";
+        updateDisplay();
+    }
+
+    startBtn.addEventListener('click', () => {
+        if (timerId === null) {
+            startBtn.textContent = '일시정지';
+            timerId = setInterval(() => {
+                if (timeLeft > 0) {
+                    timeLeft--;
+                    updateDisplay();
+                } else {
+                    clearInterval(timerId);
+                    timerId = null;
+                    if (isFocusMode) {
+                        recordTime(parseInt(focusInput.value));
+                        alert('집중 완료! 휴식 시간입니다.');
+                        isFocusMode = false;
+                    } else {
+                        alert('휴식 종료! 다시 힘내봐요.');
+                        isFocusMode = true;
+                    }
+                    initTimer();
+                }
+            }, 1000);
+        } else {
+            clearInterval(timerId);
+            timerId = null;
+            startBtn.textContent = '시작';
+        }
+    });
+
+    resetBtn.addEventListener('click', initTimer);
+    focusInput.addEventListener('change', initTimer);
+    breakInput.addEventListener('change', initTimer);
+
+    function recordTime(mins) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        let data = getData();
+        data[todayStr] = (data[todayStr] || 0) + mins;
+        saveData(data);
+        renderCSSChart();
+    }
+
+    // 뷰 전환 함수
+    function switchView(view) {
+        currentView = view;
+        document.getElementById('weekBtn').classList.toggle('active', view === 'week');
+        document.getElementById('monthBtn').classList.toggle('active', view === 'month');
+        document.getElementById('chartTitle').textContent = view === 'week' ? '이번 주 통계 (월~일)' : '월간 통계 (최근 30일)';
+        renderCSSChart();
+    }
+
+    // 그래프 통합 렌더링 함수
+    function renderCSSChart() {
+        const container = document.getElementById('chartContainer');
+        container.innerHTML = '';
+        const data = getData();
+        const today = new Date();
+        
+        const chartData = [];
+        let maxVal = 60; 
+
+        if (currentView === 'week') {
+            // --- 주간 로직 (월~일 고정) ---
+            const currentDay = today.getDay(); 
+            const distanceToMonday = currentDay === 0 ? 6 : currentDay - 1;
+            const monday = new Date(today);
+            monday.setDate(today.getDate() - distanceToMonday);
+
+            const dayLabels = ['월', '화', '수', '목', '금', '토', '일'];
+
+            for (let i = 0; i < 7; i++) {
+                const nextDay = new Date(monday);
+                nextDay.setDate(monday.getDate() + i);
+                const dateStr = nextDay.toISOString().split('T')[0];
+                const val = data[dateStr] || 0;
+                
+                if (val > maxVal) maxVal = val;
+                
+                chartData.push({
+                    label: dayLabels[i],
+                    value: val,
+                    isToday: nextDay.toDateString() === today.toDateString(),
+                    barWidth: '16px'
+                });
+            }
+        } else {
+            // --- 월간 로직 (최근 30일 rolling) ---
+            for (let i = 29; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(today.getDate() - i);
+                const dateStr = d.toISOString().split('T')[0];
+                const val = data[dateStr] || 0;
+                
+                if (val > maxVal) maxVal = val;
+                
+                // 30개 글자가 다 뜨면 겹치므로 5일 간격 또는 오늘(i=0)만 날짜 노출
+                const labelText = (i % 5 === 0) ? `${d.getDate()}일` : '';
+
+                chartData.push({
+                    label: labelText,
+                    value: val,
+                    isToday: d.toDateString() === today.toDateString(),
+                    barWidth: '5px' // 월간은 막대를 얇게 설정
+                });
+            }
+        }
+
+        // 그리기 연산
+        chartData.forEach(day => {
+            const pct = (day.value / maxVal) * 100;
+            const wrapper = document.createElement('div');
+            wrapper.className = `bar-wrapper ${day.isToday ? 'today' : ''}`;
+            wrapper.title = `${day.value}분 집중함`;
+            wrapper.innerHTML = `
+                <div class="bar-track" style="max-width: ${day.barWidth};">
+                    <div class="bar-fill" style="height: ${pct}%"></div>
+                </div>
+                <div class="bar-label" style="font-size: ${currentView === 'week' ? '0.75rem' : '0.6rem'}">${day.label}</div>
+            `;
+            container.appendChild(wrapper);
+        });
+    }
+
+    initTimer();
+    renderCSSChart();
+</script>
+</body>
+</html>
