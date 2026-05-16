@@ -4,12 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Notion Style Dark Pomodoro</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --bg-color: #191919;       
-            --card-bg: #202020;        
-            --border-color: #2f2f2f;   
+            --bg-color: #191919;       /* 노션 다크모드 배경색 */
+            --card-bg: #202020;        /* 노션 다크모드 카드색 */
+            --border-color: #2f2f2f;   /* 노션 다크모드 테두리색 */
             --text-main: #ffffff;
             --text-sub: #9b9b9b;
             --accent-color: #e25555;   
@@ -18,10 +17,10 @@
 
         body {
             margin: 0;
-            padding: 20px;
+            padding: 15px;
             background-color: var(--bg-color);
             color: var(--text-main);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -29,41 +28,40 @@
 
         .container {
             width: 100%;
-            max-width: 480px;
+            max-width: 400px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 15px;
         }
 
         .card {
             background-color: var(--card-bg);
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            padding: 24px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            padding: 20px;
             text-align: center;
         }
 
         .mode-indicator {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: var(--text-sub);
             text-transform: uppercase;
             letter-spacing: 2px;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
         }
 
         #timer {
-            font-size: 4rem;
+            font-size: 3.5rem;
             font-weight: 700;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             font-variant-numeric: tabular-nums;
         }
 
         .controls {
             display: flex;
             justify-content: center;
-            gap: 12px;
-            margin-bottom: 24px;
+            gap: 10px;
+            margin-bottom: 20px;
         }
 
         button {
@@ -71,67 +69,90 @@
             color: var(--text-main);
             border: 1px solid var(--border-color);
             border-radius: 6px;
-            padding: 10px 20px;
-            font-size: 0.95rem;
+            padding: 8px 16px;
+            font-size: 0.9rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
         }
 
         button:hover { background-color: #373737; }
         button.primary { background-color: var(--accent-color); border-color: var(--accent-color); }
-        button.primary:hover { background-color: #ff6b6b; }
 
         .settings {
             display: flex;
             justify-content: space-around;
             border-top: 1px solid var(--border-color);
-            padding-top: 20px;
-            gap: 15px;
+            padding-top: 15px;
+            gap: 10px;
         }
 
         .setting-group {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 6px;
-            font-size: 0.85rem;
+            gap: 4px;
+            font-size: 0.8rem;
             color: var(--text-sub);
         }
 
         .setting-group input {
-            width: 60px;
+            width: 50px;
             background-color: var(--bg-color);
             border: 1px solid var(--border-color);
             color: var(--text-main);
             border-radius: 4px;
-            padding: 6px;
+            padding: 4px;
             text-align: center;
-            font-size: 1rem;
         }
 
-        .stats-header {
+        /* --- 순수 CSS 그래프 스타일 --- */
+        .stats-title {
+            font-size: 1rem;
+            font-weight: 600;
+            text-align: left;
+            margin-bottom: 15px;
+            color: var(--text-main);
+        }
+
+        .chart-container {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
+            align-items: flex-end;
+            height: 120px;
+            padding-top: 10px;
         }
 
-        .stats-title { font-size: 1.1rem; font-weight: 600; }
-
-        .toggle-buttons {
+        .bar-wrapper {
             display: flex;
-            gap: 4px;
-            background-color: var(--bg-color);
-            padding: 2px;
-            border-radius: 6px;
-            border: 1px solid var(--border-color);
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            height: 100%;
+            justify-content: flex-end;
+            gap: 8px;
         }
 
-        .toggle-buttons button { padding: 4px 10px; font-size: 0.8rem; border: none; background: none; }
-        .toggle-buttons button.active { background-color: var(--card-bg); border-radius: 4px; }
+        .bar-track {
+            width: 15px;
+            height: 90px;
+            background-color: #252525;
+            border-radius: 3px;
+            display: flex;
+            align-items: flex-end;
+        }
 
-        canvas { max-height: 200px; }
+        .bar-fill {
+            width: 100%;
+            height: 0%; /* JS로 조절 */
+            background-color: var(--accent-color);
+            border-radius: 3px;
+            transition: height 0.5s ease;
+        }
+
+        .bar-label {
+            font-size: 0.7rem;
+            color: var(--text-sub);
+        }
     </style>
 </head>
 <body>
@@ -159,14 +180,9 @@
     </div>
 
     <div class="card">
-        <div class="stats-header">
-            <div class="stats-title">집중 통계 (분)</div>
-            <div class="toggle-buttons">
-                <button id="weekBtn" class="active" onclick="changechartView('week')">주간</button>
-                <button id="monthBtn" onclick="changechartView('month')">월간</button>
+        <div class="stats-title">주간 집중 통계 (최근 7일)</div>
+        <div class="chart-container" id="chartContainer">
             </div>
-        </div>
-        <canvas id="statsChart"></canvas>
     </div>
 </div>
 
@@ -174,8 +190,6 @@
     let isFocusMode = true;
     let timeLeft = 25 * 60;
     let timerId = null;
-    let chartView = 'week'; 
-    let myChart = null;
 
     const timerDisplay = document.getElementById('timer');
     const modeLabel = document.getElementById('modeLabel');
@@ -184,54 +198,41 @@
     const focusInput = document.getElementById('focusInput');
     const breakInput = document.getElementById('breakInput');
 
-    // --- [안전장치] 브라우저 쿠키/메모리 차단 대응 로직 ---
-    let isStorageAvailable = false;
-    let backupMemory = {};
-
-    try {
-        localStorage.setItem('test', 'test');
-        localStorage.removeItem('test');
-        isStorageAvailable = true;
-    } catch (e) {
-        console.warn("브라우저 보안으로 로컬스토리지가 차단되었습니다. 임시 메모리를 사용합니다.");
-    }
-
-    function getStorageData() {
-        if (isStorageAvailable) {
-            return JSON.parse(localStorage.getItem('pomodoroData')) || {};
-        }
-        return backupMemory;
-    }
-
-    function setStorageData(data) {
-        if (isStorageAvailable) {
-            try {
-                localStorage.setItem('pomodoroData', JSON.stringify(data));
-            } catch (e) {}
-        } else {
-            backupMemory = data;
+    // 임시 메모리 저장소 (보안 차단 대비)
+    let memoryStorage = {};
+    
+    function getData() {
+        try {
+            return JSON.parse(localStorage.getItem('pomo_pure')) || {};
+        } catch(e) {
+            return memoryStorage;
         }
     }
 
-    // 초기 더미 데이터 주입
-    let currentData = getStorageData();
+    function saveData(data) {
+        try {
+            localStorage.setItem('pomo_pure', JSON.stringify(data));
+        } catch(e) {
+            memoryStorage = data;
+        }
+    }
+
+    // 초기 더미데이터 주입 (그래프가 비어보이지 않게)
+    let currentData = getData();
     if (Object.keys(currentData).length === 0) {
-        const dummyData = {};
         const today = new Date();
-        for (let i = 15; i >= 0; i--) {
+        for (let i = 6; i >= 0; i--) {
             const d = new Date(today);
             d.setDate(today.getDate() - i);
-            const dateStr = d.toISOString().split('T')[0];
-            dummyData[dateStr] = Math.floor(Math.random() * 3) * 25; 
+            currentData[d.toISOString().split('T')[0]] = Math.floor(Math.random() * 3) * 25;
         }
-        setStorageData(dummyData);
+        saveData(currentData);
     }
 
-    // --- 타이머 기능 ---
+    // 타이머 구동
     function updateDisplay() {
         const minutes = Math.floor(timeLeft / 60);
         const seconds = timeLeft % 60;
-        timerDisplay.style.color = isFocusMode ? 'var(--text-main)' : 'var(--accent-break)';
         timerDisplay.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
     }
 
@@ -257,13 +258,12 @@
                 } else {
                     clearInterval(timerId);
                     timerId = null;
-                    
                     if (isFocusMode) {
-                        saveRecord(parseInt(focusInput.value)); 
+                        recordTime(parseInt(focusInput.value));
                         alert('집중 완료! 휴식 시간입니다.');
                         isFocusMode = false;
                     } else {
-                        alert('휴식 종료! 다시 집중할 시간입니다.');
+                        alert('휴식 종료! 다시 힘내봐요.');
                         isFocusMode = true;
                     }
                     initTimer();
@@ -280,76 +280,55 @@
     focusInput.addEventListener('change', initTimer);
     breakInput.addEventListener('change', initTimer);
 
-    function saveRecord(minutes) {
+    function recordTime(mins) {
         const todayStr = new Date().toISOString().split('T')[0];
-        let data = getStorageData();
-        data[todayStr] = (data[todayStr] || 0) + minutes;
-        setStorageData(data);
-        renderChart(); 
+        let data = getData();
+        data[todayStr] = (data[todayStr] || 0) + mins;
+        saveData(data);
+        renderCSSChart();
     }
 
-    // --- 그래프 시각화 ---
-    function getChartData(daysCount) {
-        const data = getStorageData();
-        const labels = [];
-        const dataset = [];
+    // 순수 HTML 막대그래프 그리기 함수
+    function renderCSSChart() {
+        const container = document.getElementById('chartContainer');
+        container.innerHTML = '';
+        const data = getData();
         const today = new Date();
+        
+        // 최근 7일 데이터 추출
+        const last7Days = [];
+        let maxVal = 60; // 최대 기준치 (분) 기본값
 
-        for (let i = daysCount - 1; i >= 0; i--) {
+        for (let i = 6; i >= 0; i--) {
             const d = new Date(today);
             d.setDate(today.getDate() - i);
             const dateStr = d.toISOString().split('T')[0];
-            
-            if (daysCount > 7) {
-                labels.push(`${d.getDate()}일`);
-            } else {
-                labels.push(`${d.getMonth()+1}/${d.getDate()}`);
-            }
-            dataset.push(data[dateStr] || 0);
+            const val = data[dateStr] || 0;
+            if (val > maxVal) maxVal = val;
+            last7Days.push({
+                label: `${d.getDate()}일`,
+                value: val
+            });
         }
-        return { labels, dataset };
-    }
 
-    function renderChart() {
-        const days = chartView === 'week' ? 7 : 30;
-        const { labels, dataset } = getChartData(days);
-        const ctx = document.getElementById('statsChart').getContext('2d');
-
-        if (myChart) { myChart.destroy(); }
-
-        myChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: '집중 시간(분)',
-                    data: dataset,
-                    backgroundColor: '#e25555',
-                    borderRadius: 4,
-                    barPercentage: 0.6
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { grid: { display: false }, ticks: { color: '#9b9b9b', font: { size: 10 } } },
-                    y: { grid: { color: '#2f2f2f' }, ticks: { color: '#9b9b9b', font: { size: 10 } }, beginAtZero: true }
-                }
-            }
+        // 막대 엘리먼트 생성
+        last7Days.forEach(day => {
+            const pct = (day.value / maxVal) * 100;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'bar-wrapper';
+            wrapper.title = `${day.value}분 집중함`;
+            wrapper.innerHTML = `
+                <div class="bar-track">
+                    <div class="bar-fill" style="height: ${pct}%"></div>
+                </div>
+                <div class="bar-label">${day.label}</div>
+            `;
+            container.appendChild(wrapper);
         });
     }
 
-    function changechartView(view) {
-        chartView = view;
-        document.getElementById('weekBtn').classList.toggle('active', view === 'week');
-        document.getElementById('monthBtn').classList.toggle('active', view === 'month');
-        renderChart();
-    }
-
     initTimer();
-    renderChart();
+    renderCSSChart();
 </script>
 </body>
 </html>
