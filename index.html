@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notion Style Dark Pomodoro</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #191919;       /* 노션 다크모드 배경색 */
+            --card-bg: #202020;        /* 노션 다크모드 카드색 */
+            --border-color: #2f2f2f;   /* 노션 다크모드 테두리색 */
+            --text-main: #ffffff;
+            --text-sub: #9b9b9b;
+            --accent-color: #e25555;   /* 뽀모도로 포인트 레드 */
+            --accent-break: #2eaadc;   /* 휴식 포인트 블루 */
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 480px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* 카드 공통 스타일 */
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            text-align: center;
+        }
+
+        /* 타이머 영역 */
+        .mode-indicator {
+            font-size: 0.9rem;
+            color: var(--text-sub);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+        }
+
+        #timer {
+            font-size: 4rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* 컨트롤 버튼 */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        button {
+            background-color: #2c2c2c;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background-color: #373737;
+        }
+
+        button.primary {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+        }
+
+        button.primary:hover {
+            background-color: #ff6b6b;
+        }
+
+        /* 커스텀 설정 영역 */
+        .settings {
+            display: flex;
+            justify-content: space-around;
+            border-top: 1px solid var(--border-color);
+            padding-top: 20px;
+            gap: 15px;
+        }
+
+        .setting-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            color: var(--text-sub);
+        }
+
+        .setting-group input {
+            width: 60px;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            border-radius: 4px;
+            padding: 6px;
+            text-align: center;
+            font-size: 1rem;
+        }
+
+        /* 통계 그래프 영역 */
+        .stats-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .stats-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .toggle-buttons {
+            display: flex;
+            gap: 4px;
+            background-color: var(--bg-color);
+            padding: 2px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        .toggle-buttons button {
+            padding: 4px 10px;
+            font-size: 0.8rem;
+            border: none;
+            background: none;
+        }
+
+        .toggle-buttons button.active {
+            background-color: var(--card-bg);
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        canvas {
+            max-height: 200px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <div id="modeLabel" class="mode-indicator">Focus Time</div>
+        <div id="timer">25:00</div>
+        
+        <div class="controls">
+            <button id="startBtn" class="primary">시작</button>
+            <button id="resetBtn">리셋</button>
+        </div>
+
+        <div class="settings">
+            <div class="setting-group">
+                <label for="focusInput">집중 (분)</label>
+                <input type="number" id="focusInput" value="25" min="1" max="60">
+            </div>
+            <div class="setting-group">
+                <label for="breakInput">휴식 (분)</label>
+                <input type="number" id="breakInput" value="5" min="1" max="60">
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="stats-header">
+            <div class="stats-title">집중 통계 (분)</div>
+            <div class="toggle-buttons">
+                <button id="weekBtn" class="active" onclick="changechartView('week')">주간</button>
+                <button id="monthBtn" onclick="changechartView('month')">월간</button>
+            </div>
+        </div>
+        <canvas id="statsChart"></canvas>
+    </div>
+</div>
+
+<script>
+    // --- 상태 변수 ---
+    let isFocusMode = true;
+    let timeLeft = 25 * 60;
+    let timerId = null;
+    let chartView = 'week'; // 'week' 또는 'month'
+    let myChart = null;
+
+    // --- DOM 요소 ---
+    const timerDisplay = document.getElementById('timer');
+    const modeLabel = document.getElementById('modeLabel');
+    const startBtn = document.getElementById('startBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const focusInput = document.getElementById('focusInput');
+    const breakInput = document.getElementById('breakInput');
+
+    // --- 초기
