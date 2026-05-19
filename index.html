@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notion Style Dark Pomodoro</title>
+    <title>Notion Style Dark Pomodoro Pro+</title>
     <style>
         :root {
-            --bg-color: #191919;       /* 노션 다크모드 배경색 */
-            --card-bg: #202020;        /* 노션 다크모드 카드색 */
-            --border-color: #2f2f2f;   /* 노션 다크모드 테두리색 */
+            --bg-color: #191919;       
+            --card-bg: #202020;        
+            --border-color: #2f2f2f;   
             --text-main: #ffffff;
             --text-sub: #9b9b9b;
             --accent-color: #e25555;   
@@ -60,8 +60,9 @@
         .controls {
             display: flex;
             justify-content: center;
-            gap: 10px;
+            gap: 8px;
             margin-bottom: 20px;
+            flex-wrap: wrap;
         }
 
         button {
@@ -69,8 +70,8 @@
             color: var(--text-main);
             border: 1px solid var(--border-color);
             border-radius: 6px;
-            padding: 8px 16px;
-            font-size: 0.9rem;
+            padding: 8px 14px;
+            font-size: 0.85rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
@@ -78,6 +79,7 @@
 
         button:hover { background-color: #373737; }
         button.primary { background-color: var(--accent-color); border-color: var(--accent-color); }
+        button.secondary { background-color: #3e3e3e; }
 
         .settings {
             display: flex;
@@ -106,7 +108,29 @@
             text-align: center;
         }
 
-        /* --- 통계 헤더 및 토글 버튼 스타일 --- */
+        /* ➕ 수동 추가 스타일 */
+        .manual-section {
+            margin-top: 15px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.8rem;
+            color: var(--text-sub);
+        }
+
+        .manual-section input {
+            width: 60px;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            border-radius: 4px;
+            padding: 5px;
+            text-align: center;
+        }
+
         .stats-header {
             display: flex;
             justify-content: space-between;
@@ -114,11 +138,7 @@
             margin-bottom: 15px;
         }
 
-        .stats-title {
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--text-main);
-        }
+        .stats-title { font-size: 1rem; font-weight: 600; color: var(--text-main); }
 
         .toggle-container {
             display: flex;
@@ -128,22 +148,9 @@
             border: 1px solid var(--border-color);
         }
 
-        .toggle-container button {
-            padding: 3px 8px;
-            font-size: 0.75rem;
-            border: none;
-            background: none;
-            color: var(--text-sub);
-        }
+        .toggle-container button { padding: 3px 8px; font-size: 0.75rem; border: none; background: none; color: var(--text-sub); }
+        .toggle-container button.active { background-color: var(--card-bg); color: var(--text-main); border-radius: 4px; }
 
-        .toggle-container button.active {
-            background-color: var(--card-bg);
-            color: var(--text-main);
-            border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-
-        /* --- 순수 CSS 그래프 스타일 --- */
         .chart-container {
             display: flex;
             justify-content: space-between;
@@ -181,17 +188,8 @@
             transition: height 0.4s ease;
         }
 
-        .bar-label {
-            font-size: 0.7rem;
-            color: var(--text-sub);
-            height: 14px;
-            line-height: 14px;
-        }
-        
-        .bar-wrapper.today .bar-label {
-            color: var(--accent-color);
-            font-weight: bold;
-        }
+        .bar-label { font-size: 0.7rem; color: var(--text-sub); height: 14px; line-height: 14px; }
+        .bar-wrapper.today .bar-label { color: var(--accent-color); font-weight: bold; }
     </style>
 </head>
 <body>
@@ -204,6 +202,7 @@
         <div class="controls">
             <button id="startBtn" class="primary">시작</button>
             <button id="resetBtn">리셋</button>
+            <button id="skipBtn" class="secondary">건너뛰기</button>
         </div>
 
         <div class="settings">
@@ -215,6 +214,12 @@
                 <label for="breakInput">휴식 (분)</label>
                 <input type="number" id="breakInput" value="5" min="1" max="60">
             </div>
+        </div>
+
+        <div class="manual-section">
+            <label for="manualInput">수동 시간 기록 (분):</label>
+            <input type="number" id="manualInput" value="30" min="1" max="180">
+            <button id="addManualBtn" style="padding: 5px 12px;">더하기</button>
         </div>
     </div>
 
@@ -234,31 +239,31 @@
     let isFocusMode = true;
     let timeLeft = 25 * 60;
     let timerId = null;
-    let currentView = 'week'; // 'week' 또는 'month'
+    let currentView = 'week'; 
+    let sessionFocusedSeconds = 0; 
 
     const timerDisplay = document.getElementById('timer');
     const modeLabel = document.getElementById('modeLabel');
     const startBtn = document.getElementById('startBtn');
     const resetBtn = document.getElementById('resetBtn');
+    const skipBtn = document.getElementById('skipBtn');
     const focusInput = document.getElementById('focusInput');
     const breakInput = document.getElementById('breakInput');
+    const manualInput = document.getElementById('manualInput');
+    const addManualBtn = document.getElementById('addManualBtn');
 
     let memoryStorage = {};
     
     function getData() {
         try {
-            return JSON.parse(localStorage.getItem('pomo_real')) || {};
-        } catch(e) {
-            return memoryStorage;
-        }
+            return JSON.parse(localStorage.getItem('pomo_real_v2')) || {};
+        } catch(e) { return memoryStorage; }
     }
 
     function saveData(data) {
         try {
-            localStorage.setItem('pomo_real', JSON.stringify(data));
-        } catch(e) {
-            memoryStorage = data;
-        }
+            localStorage.setItem('pomo_real_v2', JSON.stringify(data));
+        } catch(e) { memoryStorage = data; }
     }
 
     function updateDisplay() {
@@ -271,6 +276,7 @@
         clearInterval(timerId);
         timerId = null;
         startBtn.textContent = '시작';
+        sessionFocusedSeconds = 0; 
         const focusMin = parseInt(focusInput.value) || 25;
         const breakMin = parseInt(breakInput.value) || 5;
         timeLeft = (isFocusMode ? focusMin : breakMin) * 60;
@@ -279,18 +285,31 @@
         updateDisplay();
     }
 
+    function flushFocusedTime() {
+        if (isFocusMode && sessionFocusedSeconds > 0) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            let data = getData();
+            data[todayStr] = (data[todayStr] || 0) + sessionFocusedSeconds;
+            saveData(data);
+            sessionFocusedSeconds = 0; 
+            renderCSSChart();
+        }
+    }
+
     startBtn.addEventListener('click', () => {
         if (timerId === null) {
             startBtn.textContent = '일시정지';
             timerId = setInterval(() => {
                 if (timeLeft > 0) {
                     timeLeft--;
+                    if (isFocusMode) { sessionFocusedSeconds++; }
                     updateDisplay();
                 } else {
                     clearInterval(timerId);
                     timerId = null;
+                    flushFocusedTime(); 
+                    
                     if (isFocusMode) {
-                        recordTime(parseInt(focusInput.value));
                         alert('집중 완료! 휴식 시간입니다.');
                         isFocusMode = false;
                     } else {
@@ -304,22 +323,41 @@
             clearInterval(timerId);
             timerId = null;
             startBtn.textContent = '시작';
+            flushFocusedTime(); 
         }
     });
 
-    resetBtn.addEventListener('click', initTimer);
-    focusInput.addEventListener('change', initTimer);
-    breakInput.addEventListener('change', initTimer);
+    resetBtn.addEventListener('click', () => {
+        flushFocusedTime();
+        initTimer();
+    });
 
-    function recordTime(mins) {
+    skipBtn.addEventListener('click', () => {
+        flushFocusedTime(); 
+        isFocusMode = !isFocusMode; 
+        initTimer();
+    });
+
+    // 🛠️ 수동 시간 추가 이벤트 리스너
+    addManualBtn.addEventListener('click', () => {
+        const inputMins = parseInt(manualInput.value) || 0;
+        if (inputMins <= 0) return;
+
         const todayStr = new Date().toISOString().split('T')[0];
         let data = getData();
-        data[todayStr] = (data[todayStr] || 0) + mins;
+        
+        // 입력받은 '분'을 내부 연산 표준 단위인 '초'로 변환하여 저장
+        data[todayStr] = (data[todayStr] || 0) + (inputMins * 60);
         saveData(data);
-        renderCSSChart();
-    }
+        
+        renderCSSChart(); // 그래프에 즉시 반영
+        alert(`${inputMins}분이 오늘 집중 시간에 수동으로 추가되었습니다!`);
+        manualInput.value = 30; // 기본값 리셋
+    });
 
-    // 뷰 전환 함수
+    focusInput.addEventListener('change', () => { flushFocusedTime(); initTimer(); });
+    breakInput.addEventListener('change', () => { flushFocusedTime(); initTimer(); });
+
     function switchView(view) {
         currentView = view;
         document.getElementById('weekBtn').classList.toggle('active', view === 'week');
@@ -328,7 +366,6 @@
         renderCSSChart();
     }
 
-    // 그래프 통합 렌더링 함수
     function renderCSSChart() {
         const container = document.getElementById('chartContainer');
         container.innerHTML = '';
@@ -339,7 +376,6 @@
         let maxVal = 60; 
 
         if (currentView === 'week') {
-            // --- 주간 로직 (월~일 고정) ---
             const currentDay = today.getDay(); 
             const distanceToMonday = currentDay === 0 ? 6 : currentDay - 1;
             const monday = new Date(today);
@@ -351,40 +387,41 @@
                 const nextDay = new Date(monday);
                 nextDay.setDate(monday.getDate() + i);
                 const dateStr = nextDay.toISOString().split('T')[0];
-                const val = data[dateStr] || 0;
                 
-                if (val > maxVal) maxVal = val;
+                const valInSeconds = data[dateStr] || 0;
+                const valInMins = Math.round((valInSeconds / 60) * 10) / 10;
+                
+                if (valInMins > maxVal) maxVal = valInMins;
                 
                 chartData.push({
                     label: dayLabels[i],
-                    value: val,
+                    value: valInMins,
                     isToday: nextDay.toDateString() === today.toDateString(),
                     barWidth: '16px'
                 });
             }
         } else {
-            // --- 월간 로직 (최근 30일 rolling) ---
             for (let i = 29; i >= 0; i--) {
                 const d = new Date(today);
                 d.setDate(today.getDate() - i);
                 const dateStr = d.toISOString().split('T')[0];
-                const val = data[dateStr] || 0;
                 
-                if (val > maxVal) maxVal = val;
+                const valInSeconds = data[dateStr] || 0;
+                const valInMins = Math.round((valInSeconds / 60) * 10) / 10;
                 
-                // 30개 글자가 다 뜨면 겹치므로 5일 간격 또는 오늘(i=0)만 날짜 노출
+                if (valInMins > maxVal) maxVal = valInMins;
+                
                 const labelText = (i % 5 === 0) ? `${d.getDate()}일` : '';
 
                 chartData.push({
                     label: labelText,
-                    value: val,
+                    value: valInMins,
                     isToday: d.toDateString() === today.toDateString(),
-                    barWidth: '5px' // 월간은 막대를 얇게 설정
+                    barWidth: '5px'
                 });
             }
         }
 
-        // 그리기 연산
         chartData.forEach(day => {
             const pct = (day.value / maxVal) * 100;
             const wrapper = document.createElement('div');
